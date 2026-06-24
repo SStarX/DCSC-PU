@@ -204,9 +204,6 @@ def _process_single_perturbation(D, perturb_type, sub_seed, C, k_qs, beta_qs, ba
 
 def _compute_nbrs_parallel(D, nbr_count, n_jobs):
     """并行构建 KNN 邻居索引。
-
-    将数据集分块后各自在子进程中计算 KNN，然后在主进程拼合，
-    相比在主进程中单线程计算 NearestNeighbors 可显著缩短等待时间。
     """
     n = D.shape[0]
     nbr_count = min(nbr_count, n)
@@ -243,25 +240,10 @@ def calculate_peak_uncertainty_online_parallel(
     batch_size=None,
     return_history=False,
 ):
-    """Parallelized online estimation of Peak Uncertainty T and representative confidence.
-
-    Preserves the exact sequential incremental update equations and early stopping criteria
-    by pre-generating the perturbation stream and processing it in speculative parallel batches.
-
-    Optimizations vs. the first version:
-    1. KNN pre-computation is parallelized across CPU cores (_compute_nbrs_parallel).
-    2. Process pool reuse strategy:
-       - N < _PROCESS_REUSE_THRESHOLD: Parallel used as a context manager so the worker
-         pool is kept alive across all batch iterations (saves process-spawn overhead for
-         small datasets where memory accumulation is negligible).
-       - N >= _PROCESS_REUSE_THRESHOLD: Each batch spawns and destroys its own worker
-         pool so OS forcibly reclaims all memory after every batch (prevents OOM for
-         large datasets where per-worker residual memory can accumulate to GBs).
-    """
+    """Parallelized online estimation of Peak Uncertainty T and representative confidence."""
     D = _as_float_array(D)
     n = D.shape[0]
 
-    # 1. Parallel parameter search
     base_width = compute_bandwidth(D, random_state=seed)
     k_qs, beta_qs = _find_qspp_params_parallel(D, C, base_width, n_jobs=n_jobs)
 
@@ -272,11 +254,9 @@ def calculate_peak_uncertainty_online_parallel(
     accepted_iters = 0
     T_history = []
 
-    # 改进1：并行 KNN 预计算
     nbr_count = min(6, n)
     nbrs_5 = _compute_nbrs_parallel(D, nbr_count, n_jobs)[:, 1:]
 
-    # 2. Pre-generate the perturbation schedule to ensure deterministic, mathematically identical results
     rng = np.random.default_rng(seed)
     tasks_info = []
     for idx in range(K_max):
@@ -284,13 +264,13 @@ def calculate_peak_uncertainty_online_parallel(
         sub_seed = int(rng.integers(1, 100000))
         tasks_info.append((perturb_type, sub_seed))
 
-    # 3. Determine job count and batch size
+
     cpu_cores = joblib.cpu_count()
     actual_jobs = cpu_cores if n_jobs == -1 else min(max(1, n_jobs), cpu_cores)
     if batch_size is None:
         batch_size = max(2, actual_jobs)
 
-    # 改进2：按样本量选择进程池重用策略
+
     reuse_pool = n < _PROCESS_REUSE_THRESHOLD
 
     def _run_batch(parallel_obj, batch_tasks):
@@ -337,7 +317,6 @@ def calculate_peak_uncertainty_online_parallel(
                 T_history.append(float(T_k))
         return False
 
-    # 4. Process in speculative batches while maintaining sequential updating order
     task_idx = 0
 
     if reuse_pool:

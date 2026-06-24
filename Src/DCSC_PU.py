@@ -1,10 +1,7 @@
 """
-DCSC_PUparallel.py
+DCSC_PU.py
 -----------
-完整的 DCSC-PU 算法实现，将第一阶段 T/P_k 的估计替换为并行版本
-（calculate_peak_uncertainty_online_parallel）。
-其余阶段（核心簇选择、族树构建、相似度计算、谱聚类）完全与原版 DCSC_PU.py 保持一致，
-确保算法语义不变的前提下提升效率。
+完整的 DCSC-PU 算法实现
 """
 import math
 import warnings
@@ -17,7 +14,7 @@ from sklearn.cluster import SpectralClustering
 from joblib import Parallel, delayed
 from sklearn.neighbors import NearestNeighbors, kneighbors_graph
 
-# 第一阶段：使用并行加速的 T/P_k 估计
+# 第一阶段：T/P_k 估计
 from Src.peak_uncertainty import (
     calculate_peak_uncertainty_online_parallel,
     compute_bandwidth,
@@ -35,7 +32,7 @@ warnings.filterwarnings("ignore")
 
 
 # ---------------------------------------------------------------------------
-# 核心区域选取（与原版一致）
+# 核心区域选取
 # ---------------------------------------------------------------------------
 
 def _select_cores(D, C, k, beta, width):
@@ -91,7 +88,7 @@ def _knn_density_from_distances(neighbor_dist):
 
 
 # ---------------------------------------------------------------------------
-# 第二阶段：T 自适应核心掩码构建（与原版一致）
+# 第二阶段：T 自适应核心掩码构建
 # ---------------------------------------------------------------------------
 
 def build_adaptive_core_mask(D, C, k, beta, T, seed=42, n_jobs=-1):
@@ -131,7 +128,7 @@ def build_adaptive_core_mask(D, C, k, beta, T, seed=42, n_jobs=-1):
 
 
 # ---------------------------------------------------------------------------
-# 第三阶段：核心族树构建（与原版一致）
+# 第三阶段：核心族树构建
 # ---------------------------------------------------------------------------
 
 def build_corefamilytree(D, C, k, beta, T, P_k, alpha=1.0, seed=42, n_jobs=-1):
@@ -176,7 +173,7 @@ def build_corefamilytree(D, C, k, beta, T, P_k, alpha=1.0, seed=42, n_jobs=-1):
 
 
 # ---------------------------------------------------------------------------
-# 第四阶段：相似度计算（与原版一致）
+# 第四阶段：相似度计算
 # ---------------------------------------------------------------------------
 
 def measure_similarity(D, core_tree, k, T=1.0):
@@ -220,7 +217,7 @@ def measure_similarity(D, core_tree, k, T=1.0):
 
 
 # ---------------------------------------------------------------------------
-# 第五阶段：最终聚类（与原版一致）
+# 第五阶段：最终聚类
 # ---------------------------------------------------------------------------
 
 def final_clustering(D, S, core_tree, C):
@@ -260,7 +257,7 @@ def final_clustering(D, S, core_tree, C):
 # ---------------------------------------------------------------------------
 
 def DCSC_PU_parallel(D, C, k, beta, T, P_k, alpha=1.0, seed=42, n_jobs=-1):
-    """Main DCSC-PU interface（与 DCSC_PU 等价，可直接替换调用）."""
+    """Main DCSC-PU interface."""
     D = _as_float_array(D)
     core_tree = build_corefamilytree(D, C, k, beta, T, P_k, alpha, seed, n_jobs=n_jobs)
     similarity = measure_similarity(D, core_tree, k, T)
