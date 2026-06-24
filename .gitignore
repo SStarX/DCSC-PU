@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.dylib
+*.egg-info/
+build/
+dist/
+third_party/quickshiftpp/quickshift_pp.cpp
+.idea/
+.vscode/
+outputs/
